@@ -20,8 +20,7 @@ export default function Home() {
   const [password, setPassword] = useState("");
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] =
-    useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   const [tasks, setTasks] = useState<Task[]>([]);
 
@@ -40,7 +39,7 @@ export default function Home() {
       body: JSON.stringify({ email, password }),
     });
 
-    alert("Signup successful");
+    login();
   };
 
   // ==========================
@@ -68,8 +67,7 @@ export default function Home() {
   // 📁 FETCH PROJECTS
   // ==========================
   const fetchProjects = async (passedToken?: string) => {
-    const savedToken =
-      passedToken || localStorage.getItem("token");
+    const savedToken = passedToken || localStorage.getItem("token");
 
     if (!savedToken) return;
 
@@ -93,12 +91,8 @@ export default function Home() {
   // ==========================
   // 📥 FETCH TASKS
   // ==========================
-  const fetchTasks = async (
-    projectId: number,
-    passedToken?: string
-  ) => {
-    const savedToken =
-      passedToken || localStorage.getItem("token");
+  const fetchTasks = async (projectId: number, passedToken?: string) => {
+    const savedToken = passedToken || localStorage.getItem("token");
 
     if (!savedToken) return;
 
@@ -108,7 +102,7 @@ export default function Home() {
         headers: {
           Authorization: `Bearer ${savedToken}`,
         },
-      }
+      },
     );
 
     const data = await res.json();
@@ -146,11 +140,7 @@ export default function Home() {
   const createTask = async () => {
     const savedToken = localStorage.getItem("token");
 
-    if (
-      !newTask ||
-      !selectedProject ||
-      !savedToken
-    ) return;
+    if (!newTask || !selectedProject || !savedToken) return;
 
     await fetch("http://localhost:4000/tasks", {
       method: "POST",
@@ -196,6 +186,8 @@ export default function Home() {
   const deleteTask = async (task: Task) => {
     const savedToken = localStorage.getItem("token");
 
+    if (!savedToken) return;
+
     await fetch(`http://localhost:4000/tasks/${task.id}`, {
       method: "DELETE",
       headers: {
@@ -203,19 +195,49 @@ export default function Home() {
       },
     });
 
-    fetchTasks(task.project_id);
+    // refresh current project tasks
+    if (selectedProject) {
+      fetchTasks(selectedProject.id);
+    }
   };
 
-  // ==========================
-  // 🔄 RESTORE SESSION
-  // ==========================
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
+    const initializeApp = async () => {
+      const savedToken = localStorage.getItem("token");
 
-    if (savedToken) {
+      if (!savedToken) return;
+
       setToken(savedToken);
-      fetchProjects(savedToken);
-    }
+
+      const res = await fetch("http://localhost:4000/projects", {
+        headers: {
+          Authorization: `Bearer ${savedToken}`,
+        },
+      });
+
+      const data = await res.json();
+
+      setProjects(data);
+
+      if (data.length > 0) {
+        setSelectedProject(data[0]);
+
+        const tasksRes = await fetch(
+          `http://localhost:4000/tasks?project_id=${data[0].id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${savedToken}`,
+            },
+          },
+        );
+
+        const tasksData = await tasksRes.json();
+
+        setTasks(tasksData);
+      }
+    };
+
+    initializeApp();
   }, []);
 
   // ==========================
@@ -237,18 +259,12 @@ export default function Home() {
             type="password"
             placeholder="Password"
             value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
+            onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button onClick={signup}>
-            Signup
-          </button>
+          <button onClick={signup}>Signup</button>
 
-          <button onClick={login}>
-            Login
-          </button>
+          <button onClick={login}>Login</button>
         </div>
       </main>
     );
@@ -281,14 +297,10 @@ export default function Home() {
           <input
             placeholder="New project"
             value={newProject}
-            onChange={(e) =>
-              setNewProject(e.target.value)
-            }
+            onChange={(e) => setNewProject(e.target.value)}
           />
 
-          <button onClick={createProject}>
-            Add
-          </button>
+          <button onClick={createProject}>Add</button>
         </div>
 
         {projects.map((project) => (
@@ -302,9 +314,7 @@ export default function Home() {
               padding: "0.75rem",
               cursor: "pointer",
               background:
-                selectedProject?.id === project.id
-                  ? "#ddd"
-                  : "transparent",
+                selectedProject?.id === project.id ? "#ddd" : "transparent",
               marginBottom: "0.5rem",
             }}
           >
@@ -322,9 +332,7 @@ export default function Home() {
           padding: "2rem",
         }}
       >
-        <h1>
-          {selectedProject?.name || "Select Project"}
-        </h1>
+        <h1>{selectedProject?.name || "Select Project"}</h1>
 
         {selectedProject && (
           <>
@@ -336,14 +344,10 @@ export default function Home() {
               <input
                 placeholder="New task"
                 value={newTask}
-                onChange={(e) =>
-                  setNewTask(e.target.value)
-                }
+                onChange={(e) => setNewTask(e.target.value)}
               />
 
-              <button onClick={createTask}>
-                Add Task
-              </button>
+              <button onClick={createTask}>Add Task</button>
             </div>
 
             {tasks.map((task) => (
@@ -352,35 +356,23 @@ export default function Home() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent:
-                    "space-between",
+                  justifyContent: "space-between",
                   padding: "1rem",
                   border: "1px solid #ccc",
                   marginBottom: "0.5rem",
                 }}
               >
                 <span
-                  onClick={() =>
-                    toggleTask(task)
-                  }
+                  onClick={() => toggleTask(task)}
                   style={{
                     cursor: "pointer",
-                    textDecoration:
-                      task.completed
-                        ? "line-through"
-                        : "none",
+                    textDecoration: task.completed ? "line-through" : "none",
                   }}
                 >
                   {task.title}
                 </span>
 
-                <button
-                  onClick={() =>
-                    deleteTask(task)
-                  }
-                >
-                  Delete
-                </button>
+                <button onClick={() => deleteTask(task)}>Delete</button>
               </div>
             ))}
           </>
